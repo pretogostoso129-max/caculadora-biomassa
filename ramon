@@ -1,0 +1,265 @@
+index.html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Biomassa Arbórea</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background: #eef5ee;
+  color: #24352a;
+}
+
+.container {
+  max-width: 750px;
+  margin: auto;
+}
+
+header {
+  background: #176b3a;
+  color: white;
+  padding: 25px;
+  text-align: center;
+  border-radius: 15px;
+}
+
+header h1 { margin: 0 0 10px; }
+
+.card {
+  background: white;
+  padding: 22px;
+  margin-top: 20px;
+  border-radius: 14px;
+  box-shadow: 0 3px 12px #00000012;
+}
+
+label {
+  display: block;
+  margin-top: 14px;
+  font-weight: bold;
+}
+
+input, select {
+  width: 100%;
+  padding: 12px;
+  margin-top: 7px;
+  border: 1px solid #bbb;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 20px;
+  border: none;
+  border-radius: 8px;
+  background: #176b3a;
+  color: white;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover { background: #10542d; }
+
+.resultado {
+  display: none;
+  background: #e5f5e9;
+  padding: 18px;
+  margin-top: 20px;
+  border-radius: 10px;
+  line-height: 1.8;
+}
+
+.abas {
+  display: flex;
+  gap: 10px;
+}
+
+.abas button { margin-top: 0; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+th, td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+
+th { background: #e5f5e9; }
+
+.nota {
+  color: #637168;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<header>
+<h1>🌳 Calculadora de Biomassa</h1>
+<p>Sistema de estimativa de biomassa arbórea</p>
+</header>
+
+<div class="card">
+<div class="abas">
+<button onclick="mostrarAba('calculo')">📊 Cálculo</button>
+<button onclick="mostrarAba('tabela')">📖 Densidades</button>
+</div>
+</div>
+
+<section id="calculo" class="card">
+<h2>Dados da árvore</h2>
+
+<label>Espécie:</label>
+<select id="especie" onchange="mostrarDensidade()">
+<option value="">Selecione uma espécie</option>
+</select>
+
+<label>DAP (cm):</label>
+<input id="dap" type="number" min="0" step="any" placeholder="Ex: 30">
+
+<label>Altura (m):</label>
+<input id="altura" type="number" min="0" step="any" placeholder="Ex: 10">
+
+<label>Densidade (t/m³):</label>
+<input id="densidade" type="number" min="0" step="any" placeholder="Automática pela espécie">
+
+<button onclick="calcular()">🧮 Calcular biomassa</button>
+
+<div id="resultado" class="resultado"></div>
+
+<p class="nota">
+A estimativa utiliza um fator de forma de 0,5.
+O resultado representa uma estimativa simplificada da biomassa do tronco.
+</p>
+</section>
+
+<section id="tabela" class="card" style="display:none">
+<h2>📖 Tabela de densidade das madeiras</h2>
+<table>
+<thead>
+<tr>
+<th>Espécie</th>
+<th>Densidade (t/m³)</th>
+</tr>
+</thead>
+<tbody id="corpoTabela"></tbody>
+</table>
+</section>
+
+</div>
+
+<script>
+const madeiras = {
+"Acácia":0.72,
+"Açoita-Cavalo":0.78,
+"Angico":0.85,
+"Araucária":0.55,
+"Balsa":0.16,
+"Cedro":0.48,
+"Cerejeira":0.56,
+"Eucalipto":0.55,
+"Freijó":0.63,
+"Garapeira":0.75,
+"Ipê":0.90,
+"Jequitibá":0.72,
+"Louro":0.58,
+"Maçaranduba":0.95,
+"Pinus":0.45,
+"Peroba":0.68,
+"Pau-Brasil":0.95,
+"Pau-Rosa":0.70,
+"Sucupira":0.83,
+"Tamburi":0.90
+};
+
+const especie = document.getElementById("especie");
+
+Object.keys(madeiras).sort().forEach(nome => {
+  let opcao = document.createElement("option");
+  opcao.value = nome;
+  opcao.textContent = nome;
+  especie.appendChild(opcao);
+});
+
+function mostrarDensidade() {
+  let nome = especie.value;
+  if (nome) {
+    document.getElementById("densidade").value = madeiras[nome];
+  }
+}
+
+function mostrarAba(aba) {
+  document.getElementById("calculo").style.display =
+    aba === "calculo" ? "block" : "none";
+  document.getElementById("tabela").style.display =
+    aba === "tabela" ? "block" : "none";
+}
+
+function calcular() {
+  const dap = Number(document.getElementById("dap").value.replace(",", "."));
+  const altura = Number(document.getElementById("altura").value.replace(",", "."));
+  const dens = Number(document.getElementById("densidade").value.replace(",", "."));
+
+  if (!document.getElementById("dap").value ||
+      !document.getElementById("altura").value ||
+      !document.getElementById("densidade").value ||
+      dap <= 0 || altura <= 0 || dens <= 0) {
+    alert("Preencha todos os campos com valores maiores que zero.");
+    return;
+  }
+
+  const nome = especie.value || "Não informada";
+  const dapMetros = dap / 100;
+  const area = Math.PI * Math.pow(dapMetros / 2, 2);
+  const volume = area * altura * 0.5;
+  const biomassa = volume * dens;
+
+  const resultado = document.getElementById("resultado");
+
+  resultado.style.display = "block";
+  resultado.innerHTML = `
+    <h2>✅ Resultado do cálculo</h2>
+    <strong>Espécie:</strong> ${nome}<br>
+    <strong>DAP:</strong> ${dap.toFixed(2)} cm<br>
+    <strong>Altura:</strong> ${altura.toFixed(2)} m<br>
+    <strong>Área basal:</strong> ${area.toFixed(4)} m²<br>
+    <strong>Volume estimado:</strong> ${volume.toFixed(4)} m³<br>
+    <strong>Densidade:</strong> ${dens.toFixed(3)} t/m³
+    <hr>
+    <h3>Biomassa: ${biomassa.toFixed(4)} toneladas</h3>
+    <h3>${(biomassa * 1000).toFixed(2)} kg</h3>
+  `;
+}
+
+const corpo = document.getElementById("corpoTabela");
+
+Object.entries(madeiras).sort().forEach(([nome, valor]) => {
+  const linha = document.createElement("tr");
+  linha.innerHTML = `
+    <td>${nome}</td>
+    <td>${valor.toFixed(3)}</td>
+  `;
+  corpo.appendChild(linha);
+});
+</script>
+
+</body>
+</html>
