@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cálculo da BVAS – Biomassa Viva Acima do Solo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1677ff',
+                        secondary: '#2E7D32',
+                        lightBlue: '#EAF4FF',
+                        neutral: '#F5F8FA'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .menu-shadow {
+                box-shadow: 0 4px 20px rgba(22,119,255,0.12);
+            }
+        }
+    </style>
+</head>
+<body class="bg-neutral font-sans">
+    <header class="bg-white menu-shadow fixed w-full top-0 z-40">
+        <div class="flex justify-between items-center px-4 py-3">
+            <div class="flex items-center gap-2">
+                <i class="fa fa-tree text-secondary text-xl"></i>
+                <span class="font-bold text-primary">Cálculo da BVAS</span>
+            </div>
+            <button onclick="toggleMenu()" class="text-gray-700 text-xl">
+                <i class="fa fa-bars"></i>
+            </button>
+        </div>
+    </header>
+
+    <nav id="sideMenu" class="fixed top-12 right-3 left-3 bg-white rounded-xl menu-shadow z-30 hidden">
+        <ul class="py-2">
+            <li><button onclick="showSection('calculo'); toggleMenu();" class="w-full text-left px-4 py-3 hover:bg-lightBlue"><i class="fa fa-calculator text-primary mr-2"></i>Cálculo BVAS</button></li>
+            <li><button onclick="showSection('importacao'); toggleMenu();" class="w-full text-left px-4 py-3 hover:bg-lightBlue"><i class="fa fa-upload text-primary mr-2"></i>Importar Zanne</button></li>
+            <li><button onclick="showSection('banco'); toggleMenu();" class="w-full text-left px-4 py-3 hover:bg-lightBlue"><i class="fa fa-database text-primary mr-2"></i>Banco dos Registros</button></li>
+            <li><button onclick="showSection('exportar'); toggleMenu();" class="w-full text-left px-4 py-3 hover:bg-lightBlue"><i class="fa fa-download text-primary mr-2"></i>Exportar</button></li>
+        </ul>
+    </nav>
+
+    <main class="pt-16 px-4 pb-10">
+        <!-- Cálculo -->
+        <section id="calculo" class="block">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3"><i class="fa fa-calculator text-primary mr-1"></i>Cálculo BVAS</h2>
+            <form onsubmit="calcularBVAS(event)" class="bg-white p-4 rounded-xl menu-shadow space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Selecione Espécie (Nome Científico):</label>
+                    <select id="selEspecie" onchange="preencherDensidade()" class="w-full p-2 border border-gray-200 rounded-lg">
+                        <option value="">-- Selecione --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Densidade Básica d (Mg/m³):</label>
+                    <input type="number" id="densidade" placeholder="Preenchido automaticamente ou manual" step="0.0001" required class="w-full p-2 border border-gray-200 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">DAP (cm – medido a 1,30 m):</label>
+                    <input type="number" id="dap" placeholder="DAP (cm)" step="0.01" required class="w-full p-2 border border-gray-200 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Altura Total (m):</label>
+                    <input type="number" id="altura" placeholder="Altura total da árvore (m)" step="0.01" required class="w-full p-2 border border-gray-200 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Fator de Forma (FFA):</label>
+                    <input type="number" id="ffa" value="0.5" step="0.01" required class="w-full p-2 border border-gray-200 rounded-lg">
+                </div>
+                <input type="datetime-local" id="dataHora" class="w-full p-2 border border-gray-200 rounded-lg">
+                <button type="submit" class="w-full bg-primary text-white py-2 rounded-lg font-medium">Calcular BVAS</button>
+            </form>
+            <div id="resultadoBox" class="mt-3 bg-lightBlue p-4 rounded-xl hidden"></div>
+            <p class="mt-2 text-xs text-amber-600">⚠️ Esses são valores médios; não substitui base Zanne definitiva e precisa validação por engenheiro florestal!</p>
+        </section>
+
+        <!-- Importação -->
+        <section id="importacao" class="hidden">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3"><i class="fa fa-upload text-primary mr-1"></i>Importar Tabela Zanne</h2>
+            <div class="bg-white p-4 rounded-xl menu-shadow space-y-3">
+                <input type="file" id="arquivoCsv" accept=".csv" class="w-full p-2 border border-gray-200 rounded-lg">
+                <button onclick="importarCsv()" class="w-full bg-primary text-white py-2 rounded-lg font-medium">Importar CSV Zanne</button>
+                <p class="text-sm text-gray-600">⚠️ Para ter base completa: importe o CSV oficial Zanne e peça à IA para atualizar.</p>
+                <pre id="previewCsv" class="text-xs overflow-auto max-h-40 bg-gray-50 p-2 rounded border border-gray-100">Nenhum arquivo importado ainda.</pre>
+            </div>
+        </section>
+
+        <!-- Banco Registros -->
+        <section id="banco" class="hidden">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3"><i class="fa fa-database text-primary mr-2"></i>Banco dos Registros (Passo‑a‑Passo)</h2>
+            <div id="listaRegistros" class="bg-white p-4 rounded-xl menu-shadow space-y-4">
+                <p class="text-gray-500">Nenhum registro salvo.</p>
+            </div>
+        </section>
+
+        <!-- Exportar -->
+        <section id="exportar" class="hidden">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3"><i class="fa fa-download text-primary mr-2"></i>Exportar</h2>
+            <div class="bg-white p-4 rounded-xl menu-shadow space-y-3">
+                <button onclick="exportarCSV()" class="w-full bg-primary text-white py-2 rounded-lg font-medium">Exportar CSV</button>
+                <button onclick="exportarPDF()" class="w-full bg-primary text-white py-2 rounded-lg font-medium">Exportar PDF Bonitinho</button>
+            </div>
+        </section>
+    </main>
+
+<script>
+const densidadesBasicas = {
+    "Persea pyrifolia": 0.46,
+    "Acacia mangium": 0.55,
+    "Luehea divaricata": 0.62,
+    "Hymenolobium petraeum": 0.71,
+    "Dinizia excelsa": 0.88,
+    "Anadenanthera peregrina": 0.85,
+    "Araucaria angustifolia": 0.52,
+    "Myracrodruon urundeuva": 0.95,
+    "Ochroma pyramidale": 0.16,
+    "Melanoxylon brauna": 0.89,
+    "Myroxylon peruiferum": 0.82,
+    "Cupania vernalis": 0.65,
+    "Eremanthus erythropappus": 0.67,
+    "Trema micrantha": 0.35,
+    "Ocotea catharinensis": 0.60,
+    "Jacaranda micrantha": 0.48,
+    "Cedrela fissilis": 0.48,
+    "Copaifera langsdorffii": 0.61,
+    "Dipteryx odorata": 0.91,
+    "Goupia glabra": 0.72,
+    "Cecropia pachystachya": 0.32,
+    "Eucalyptus grandis": 0.48,
+    "Eucalyptus urophylla": 0.52,
+    "Enterolobium contortisiliquum": 0.42,
+    "Cordia goeldiana": 0.58,
+    "Apuleia leiocarpa": 0.75,
+    "Schizolobium parahyba": 0.28,
+    "Aspidosperma ramiflorum": 0.73,
+    "Handroanthus albus": 0.96,
+    "Zeyheria tuberculosa": 0.78,
+    "Mezilaurus itauba": 0.86,
+    "Dalbergia nigra": 0.80,
+    "Machaerium villosum": 0.74,
+    "Dialium guianense": 0.88,
+    "Hymenaea courbaril": 0.85,
+    "Cariniana legalis": 0.62,
+    "Sextonia rubra": 0.56,
+    "Manilkara huberi": 0.93,
+    "Astronium lecointei": 0.79,
+    "Brosimum rubescens": 0.78,
+    "Paubrasilia echinata": 0.87,
+    "Libidibia ferrea": 0.98,
+    "Piptadenia gonoacantha": 0.68,
+    "Tapirira guianensis": 0.50,
+    "Pinus elliottii": 0.42,
+    "Parkia multijuga": 0.38,
+    "Ocotea odorifera": 0.54,
+    "Bowdichia virgilioides": 0.84,
+    "Pera anthelmintica": 0.59,
+    "Plathymenia reticulata": 0.56
+};
+
+function carregarSelect() {
+    const sel = document.getElementById('selEspecie');
+    Object.keys(densidadesBasicas).forEach(nome => {
+        const opt = document.createElement('option');
+        opt.value = nome;
+        opt.textContent = nome;
+        sel.appendChild(opt);
+    });
+}
+
+function toggleMenu() {
+    document.getElementById('sideMenu').classList.toggle('hidden');
+}
+
+function showSection(nome) {
+    document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
+    document.getElementById(nome).classList.remove('hidden');
+    if (nome === 'banco') renderListaRegistros();
+}
+
+let baseZanne = JSON.parse(localStorage.getItem('baseZanne')) || [];
+let registros = JSON.parse(localStorage.getItem('registrosBVAS')) || [];
+
+window.onload = function() {
+    carregarSelect();
+    const agora = new Date();
+    document.getElementById('dataHora').value = agora.toISOString().slice(0, 16);
+}
+
+function preencherDensidade() {
+    const nomeSel = document.getElementById('selEspecie').value;
+    document.getElementById('densidade').value = densidadesBasicas[nomeSel] || "";
+}
+
+function importarCsv() {
+    const file = document.getElementById('arquivoCsv').files[0];
+    if (!file) return alert("Selecione o arquivo CSV do Zanne primeiro!");
+    
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            baseZanne = results.data;
+            localStorage.setItem('baseZanne', JSON.stringify(baseZanne));
+            document.getElementById('previewCsv').textContent = JSON.stringify(baseZanne.slice(0, 3), null, 2);
+            alert("CSV Zanne importado com sucesso!");
+        },
+        error: function(err) {
+            alert("Erro ao ler o CSV: " + err.message);
+        }
+    });
+}
+
+function calcularBVAS(e) {
+    e.preventDefault();
+    const dap = Number(document.getElementById('dap').value);
+    const altura = Number(document.getElementById('altura').value);
+    const ffa = Number(document.getElementById('ffa').value);
+    const d = Number(document.getElementById('densidade').value);
+    const especie = document.getElementById('selEspecie').value || "Não informada";
+    const dataHora = document.getElementById('dataHora').value;
+
+    const raioM = dap / 200;
+    const ab = Math.PI * Math.pow(raioM, 2);
+    const bvas = ab * altura * ffa * d;
+
+    const passo = 
+`📘 PASSO‑A‑PASSO DO CÁLCULO:
+✅ Dados:
+• Espécie: ${especie}
+• DAP: ${dap} cm
+• Altura Total: ${altura} m
+• FFA: ${ffa}
+• d: ${d} Mg/m³
+
+📐 Cálculo:
+1. Raio = DAP / 200
+Raio = ${dap} / 200 = ${raioM.toFixed(4)} m
+
+2. Área Basal AB = π × Raio²
+AB = π × (${raioM.toFixed(4)})² = ${ab.toFixed(6)} m²
+
+3. BVAS = AB × Altura × FFA × d
+BVAS = ${ab.toFixed(6)} × ${altura} × ${ffa} × ${d} = ${bvas.toFixed(4)} Mg
+
+⚠️ Aviso: Valor estimado; precisa validação por engenheiro florestal!`;
+
+    const registro = {
+        data: dataHora || new Date().toLocaleString(),
+        especie, 
+        dap, 
+        altura, 
+        ffa, 
+        d, 
+        raioM: raioM.toFixed(4),
+        ab: ab.toFixed(6), 
+        bvas: bvas.toFixed(4),
+        passo
+    };
+
+    registros.push(registro);
+    localStorage.setItem('registrosBVAS', JSON.stringify(registros));
+
+    const box = document.getElementById('resultadoBox');
+    box.classList.remove('hidden');
+    box.innerHTML = `
+        <h3 class="font-semibold text-primary mb-1">✅ Resultado + Passo‑a‑Passo</h3>
+        <pre class="text-xs bg-white p-2 rounded">${passo}</pre>
+    `;
+}
+
+function renderListaRegistros() {
+    const container = document.getElementById('listaRegistros');
+    if (registros.length === 0) {
+        container.innerHTML = `<p class="text-gray-500">Nenhum registro salvo.</p>`;
+    } else {
+        container.innerHTML = "";
+        registros.forEach((r, idx) => {
+            const div = document.createElement('div');
+            div.className = "border border-gray-200 rounded-lg p-3";
+            div.innerHTML = `
+                <p class="font-semibold text-sm">Registro ${idx+1} - ${r.data}</p>
+                <pre class="text-xs bg-gray-50 p-2 rounded">${r.passo}</pre>
+            `;
+            container.appendChild(div);
+        });
+    }
+}
+
+function exportarCSV() {
+    if (registros.length === 0) return alert("Sem registros para exportar!");
+    let csv = "Data,Espécie,DAP(cm),Altura(m),FFA,d(Mg/m3),Raio(m),AB(m2),BVAS(Mg),Passo\n";
+    registros.forEach(r => {
+        csv += `"${r.data}","${r.especie}",${r.dap},${r.altura},${r.ffa},${r.d},${r.raioM},${r.ab},${r.bvas},"${String(r.passo).replace(/"/g,'""')}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = "bvas_registros_passo_a_passo.csv";
+    link.click();
+}
+
+function exportarPDF() {
+    if (registros.length === 0) return alert("Sem registros para exportar!");
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFont("helvetica");
+    doc.setFontSize(14);
+    doc.text("RELATÓRIO DE CÁLCULO BVAS", 10, 15);
+    doc.setFontSize(10);
+    let y = 25;
+    registros.slice(-10).forEach((r, idx) => {
+        const linhas = doc.splitTextToSize(r.passo, 180);
+        linhas.forEach(l => {
+            if (y > 280) { doc.addPage(); y = 20; }
+            doc.text(l, 10, y);
+            y += 6;
+        });
+        y += 8;
+    });
+    doc.save("bvas_relatorio_bonitinho.pdf");
+}
+</script>
+</body>
+</html>
